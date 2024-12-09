@@ -5,7 +5,7 @@ import dhg
 from dhg.nn import HGNNPConv
 
 class HGNNP(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_classes, use_bn=True, drop_rate=0.5):
+    def __init__(self, input_dim, hidden_dim, use_bn=True, drop_rate=0.5):
         super(HGNNP, self).__init__()
         self.use_bn = use_bn
         self.drop_rate = drop_rate
@@ -14,6 +14,7 @@ class HGNNP(nn.Module):
         self.layers = nn.ModuleList([
             HGNNPConv(input_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate),
             HGNNPConv(hidden_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate),
+            HGNNPConv(hidden_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate)
         ])
 
         # 注意力层，用于给异常实例更高的权重
@@ -23,11 +24,10 @@ class HGNNP(nn.Module):
             nn.Linear(hidden_dim, 1)
         )
 
-        # 输出层
         self.fc1 = nn.Linear(hidden_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc_root_cause = nn.Linear(hidden_dim, 1)
-        self.fc_fault = nn.Linear(hidden_dim, num_classes)
+
+        self.fc_out = nn.Linear(hidden_dim, 1)
 
         self.bn = nn.BatchNorm1d(hidden_dim) if use_bn else nn.Identity()
         self.drop = nn.Dropout(drop_rate)
@@ -58,8 +58,7 @@ class HGNNP(nn.Module):
         X = F.relu(self.fc1(X))
         X = F.relu(self.fc2(X))
 
-        # 输出层
-        root_cause_score = torch.sigmoid(self.fc_root_cause(X))
-        fault_score = self.fc_fault(X)
+        # 输出层：预测根因概率
+        root_cause_score = torch.sigmoid(self.fc_out(X))
 
-        return root_cause_score, fault_score, attention_weights
+        return root_cause_score, attention_weights
