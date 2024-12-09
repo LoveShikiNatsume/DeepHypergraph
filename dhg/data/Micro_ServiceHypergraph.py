@@ -42,7 +42,7 @@ class MicroServiceHypergraph(BaseData):
             "labels": {
                 "upon": [
                     {
-                        "filename": "labels_0.pkl",
+                        "filename": "labels.pkl",
                         "md5": "ee872eade9fc4dfd96cd31522efe36e7",  # Replace with actual MD5 checksum
                     }
                 ],
@@ -52,7 +52,7 @@ class MicroServiceHypergraph(BaseData):
             "features": {
                 "upon": [
                     {
-                        "filename": "features_0.pkl",
+                        "filename": "features.pkl",
                         "md5": "52f2fdc8cea8c1c6c51bd667cac0d626",  # Replace with actual MD5 checksum
                     }
                 ],

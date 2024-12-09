@@ -1,45 +1,65 @@
 import torch
 import torch.nn as nn
-
+import torch.nn.functional as F
 import dhg
 from dhg.nn import HGNNPConv
 
-
 class HGNNP(nn.Module):
-    r"""The HGNN :sup:`+` model proposed in `HGNN+: General Hypergraph Neural Networks <https://ieeexplore.ieee.org/document/9795251>`_ paper (IEEE T-PAMI 2022).
+    def __init__(self, input_dim, hidden_dim, num_classes, use_bn=True, drop_rate=0.5):
+        super(HGNNP, self).__init__()
+        self.use_bn = use_bn
+        self.drop_rate = drop_rate
 
-    Args:
-        ``in_channels`` (``int``): :math:`C_{in}` is the number of input channels.
-        ``hid_channels`` (``int``): :math:`C_{hid}` is the number of hidden channels.
-        ``num_classes`` (``int``): The Number of class of the classification task.
-        ``use_bn`` (``bool``): If set to ``True``, use batch normalization. Defaults to ``False``.
-        ``drop_rate`` (``float``, optional): Dropout ratio. Defaults to ``0.5``.
-    """
+        # 超图卷积层
+        self.layers = nn.ModuleList([
+            HGNNPConv(input_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate),
+            HGNNPConv(hidden_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate),
+        ])
 
-    def __init__(
-        self,
-        in_channels: int,
-        hid_channels: int,
-        num_classes: int,
-        use_bn: bool = False,
-        drop_rate: float = 0.5,
-    ) -> None:
-        super().__init__()
-        self.layers = nn.ModuleList()
-        self.layers.append(
-            HGNNPConv(in_channels, hid_channels, use_bn=use_bn, drop_rate=drop_rate)
-        )
-        self.layers.append(
-            HGNNPConv(hid_channels, num_classes, use_bn=use_bn, is_last=True)
+        # 注意力层，用于给异常实例更高的权重
+        self.attention = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1)
         )
 
-    def forward(self, X: torch.Tensor, hg: "dhg.Hypergraph") -> torch.Tensor:
-        r"""The forward function.
+        # 输出层
+        self.fc1 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc_root_cause = nn.Linear(hidden_dim, 1)
+        self.fc_fault = nn.Linear(hidden_dim, num_classes)
 
-        Args:
-            ``X`` (``torch.Tensor``): Input vertex feature matrix. Size :math:`(N, C_{in})`.
-            ``hg`` (``dhg.Hypergraph``): The hypergraph structure that contains :math:`N` vertices.
-        """
+        self.bn = nn.BatchNorm1d(hidden_dim) if use_bn else nn.Identity()
+        self.drop = nn.Dropout(drop_rate)
+
+    def compute_attention_weights(self, X):
+        """计算每个节点的注意力权重"""
+        attention_scores = self.attention(X)  # (num_nodes, 1)
+        attention_weights = torch.sigmoid(attention_scores)  # 将分数归一化到0-1
+        return attention_weights
+
+    def forward(self, X: torch.Tensor, hg: "dhg.Hypergraph"):
+        # 超图卷积
         for layer in self.layers:
             X = layer(X, hg)
-        return X
+
+        # 计算注意力权重
+        attention_weights = self.compute_attention_weights(X)  # (num_nodes, 1)
+
+        # 应用注意力权重到特征
+        X_weighted = X * attention_weights  # 元素wise乘法
+
+        # 特征提取
+        X = F.relu(X_weighted)
+        X = self.bn(X)
+        X = self.drop(X)
+
+        # 全连接层
+        X = F.relu(self.fc1(X))
+        X = F.relu(self.fc2(X))
+
+        # 输出层
+        root_cause_score = torch.sigmoid(self.fc_root_cause(X))
+        fault_score = self.fc_fault(X)
+
+        return root_cause_score, fault_score, attention_weights
