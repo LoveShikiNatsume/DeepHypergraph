@@ -13,7 +13,6 @@ class HGNNP(nn.Module):
         # 超图卷积层
         self.layers = nn.ModuleList([
             HGNNPConv(input_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate),
-            HGNNPConv(hidden_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate),
             HGNNPConv(hidden_dim, hidden_dim, use_bn=use_bn, drop_rate=drop_rate)
         ])
 
