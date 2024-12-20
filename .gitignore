@@ -142,3 +142,26 @@ dmypy.json
 .pyre/
 
 .vscode/
+# PyCharm IDE 相关文件
+.idea/
+*.iml
+*.iws
+.idea/misc.xml
+.idea/modules.xml
+.idea/profiles_settings.xml
+.idea/Project_Default.xml
+.idea/vcs.xml
+.idea/workspace.xml
+.idea/shelf/
+.idea/httpRequests/
+.idea/dataSources/
+.idea/dataSources.local.xml
+
+# Excel 文件
+*.xlsx
+
+# JSON 文件
+*.json
+
+# 忽略 gitignore 文件本身（如果需要）
+.gitignore
